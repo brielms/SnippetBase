@@ -1,29 +1,30 @@
 // src/main.ts
 
-import { App, Modal, Notice, Plugin, TFile } from "obsidian";
+import { Notice, Plugin, TFile } from "obsidian";
 import { SnippetIndexer } from "./snippetBase/indexer";
-import { DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab } from "./settings";
+import { DEFAULT_SETTINGS, SnippetBaseSettings, SnippetBaseSettingTab } from "./settings";
 import { SnippetBaseView, VIEW_TYPE_SNIPPETBASE } from "./ui/SnippetBaseView";
 
 export default class SnippetBasePlugin extends Plugin {
-  settings: MyPluginSettings;
+  settings: SnippetBaseSettings;
 
   private indexer = new SnippetIndexer();
   private reindexTimers = new Map<string, number>();
+  private saveDebounceTimer: number | null = null;
 
   getAllSnippets() {
     return this.indexer.getAll();
   }
 
   async rebuildIndex() {
-    this.startIndexing();
+    await this.startIndexing();
     try {
       const records = await this.indexer.rebuild(this.app);
       this.cleanupStaleFavorites();
-      this.finishIndexing(records.length);
+      await this.finishIndexing(records.length);
       return records;
     } catch (e) {
-      this.updateIndexStatus({ isIndexing: false });
+      await this.updateIndexStatus({ isIndexing: false });
       throw e;
     }
   }
@@ -35,7 +36,7 @@ export default class SnippetBasePlugin extends Plugin {
         : this.app.workspace.getLeaf("tab");
 
     await leaf.setViewState({ type: VIEW_TYPE_SNIPPETBASE, active: true });
-    this.app.workspace.revealLeaf(leaf);
+    void this.app.workspace.revealLeaf(leaf);
   }
 
   private isMarkdownFile(file: unknown): file is TFile {
@@ -48,28 +49,27 @@ export default class SnippetBasePlugin extends Plugin {
     if (existing) window.clearTimeout(existing);
 
     // Mark as indexing during incremental updates
-    if (Object.keys(this.reindexTimers).length === 0) {
-      this.startIndexing();
+    if (this.reindexTimers.size === 0) {
+      void this.startIndexing();
     }
 
-    const handle = window.setTimeout(async () => {
-      try {
-        await this.indexer.updateFile(this.app, file);
+    const handle = window.setTimeout(() => {
+      void this.indexer.updateFile(this.app, file).then(() => {
         this.cleanupStaleFavorites();
 
         // Update status if this was the last pending reindex
         if (this.reindexTimers.size === 1) {
           const totalSnippets = this.indexer.getAll().length;
-          this.finishIndexing(totalSnippets);
+          void this.finishIndexing(totalSnippets);
         }
-      } catch (e) {
+      }).catch(async (e) => {
         console.error("[SnippetBase] incremental index failed:", e);
         if (this.reindexTimers.size === 1) {
-          this.updateIndexStatus({ isIndexing: false });
+          await this.updateIndexStatus({ isIndexing: false });
         }
-      } finally {
+      }).finally(() => {
         this.reindexTimers.delete(key);
-      }
+      });
     }, 250);
 
     this.reindexTimers.set(key, handle);
@@ -78,8 +78,10 @@ export default class SnippetBasePlugin extends Plugin {
   private refreshSnippetBaseViews() {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SNIPPETBASE);
     for (const leaf of leaves) {
-      const v = leaf.view as any;
-      if (typeof v.refresh === "function") v.refresh();
+      const view = leaf.view;
+      if (view instanceof SnippetBaseView && typeof view.refresh === "function") {
+        view.refresh();
+      }
     }
   }
 
@@ -88,13 +90,13 @@ export default class SnippetBasePlugin extends Plugin {
     return !!this.settings.favorites[snippetId];
   }
 
-  toggleFavorite(snippetId: string): void {
+  async toggleFavorite(snippetId: string): Promise<void> {
     if (this.isFavorite(snippetId)) {
       delete this.settings.favorites[snippetId];
     } else {
       this.settings.favorites[snippetId] = true;
     }
-    this.saveSettings();
+    await this.saveSettings();
     this.refreshSnippetBaseViews();
   }
 
@@ -112,22 +114,32 @@ export default class SnippetBasePlugin extends Plugin {
   }
 
   // Index status management
-  getIndexStatus() {
+  getIndexStatus(): { totalSnippets: number; lastUpdated: number; isIndexing: boolean } {
     return this.settings.indexStatus;
   }
 
-  updateIndexStatus(updates: Partial<MyPluginSettings['indexStatus']>) {
+  async updateIndexStatus(updates: Partial<SnippetBaseSettings['indexStatus']>) {
     Object.assign(this.settings.indexStatus, updates);
-    this.saveSettings();
     this.refreshSnippetBaseViews();
+    this.debouncedSaveSettings();
   }
 
-  startIndexing() {
-    this.updateIndexStatus({ isIndexing: true });
+  private debouncedSaveSettings() {
+    if (this.saveDebounceTimer) {
+      window.clearTimeout(this.saveDebounceTimer);
+    }
+    this.saveDebounceTimer = window.setTimeout(() => {
+      void this.saveSettings();
+      this.saveDebounceTimer = null;
+    }, 500);
   }
 
-  finishIndexing(totalSnippets: number) {
-    this.updateIndexStatus({
+  async startIndexing() {
+    await this.updateIndexStatus({ isIndexing: true });
+  }
+
+  async finishIndexing(totalSnippets: number) {
+    await this.updateIndexStatus({
       isIndexing: false,
       totalSnippets,
       lastUpdated: Date.now(),
@@ -137,8 +149,8 @@ export default class SnippetBasePlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
-    // Settings UI (keep if you already started customizing it)
-    this.addSettingTab(new SampleSettingTab(this.app, this));
+    // Settings UI
+    this.addSettingTab(new SnippetBaseSettingTab(this.app, this));
 
     // View registration
     this.registerView(VIEW_TYPE_SNIPPETBASE, (leaf) => new SnippetBaseView(leaf, this));
@@ -153,12 +165,12 @@ export default class SnippetBasePlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on("delete", (file) => {
         // delete events provide the old path; file may be TFile or abstract
-        const path = (file as any)?.path;
+        const path = (file as { path?: string })?.path;
         if (!path) return;
         this.indexer.removeFile(path);
         this.cleanupStaleFavorites();
         const totalSnippets = this.indexer.getAll().length;
-        this.updateIndexStatus({
+        void this.updateIndexStatus({
           totalSnippets,
           lastUpdated: Date.now(),
         });
@@ -167,49 +179,43 @@ export default class SnippetBasePlugin extends Plugin {
     );
 
     this.registerEvent(
-      this.app.vault.on("rename", (file, oldPath) => {
+      this.app.vault.on("rename", async (file, oldPath) => {
         if (!this.isMarkdownFile(file)) return;
         // drop old path, index new path
-        void this.indexer.renameFile(this.app, file, oldPath);
-        const totalSnippets = this.indexer.getAll().length;
-        this.updateIndexStatus({
-          totalSnippets,
-          lastUpdated: Date.now(),
-        });
-        this.refreshSnippetBaseViews();
+        await this.startIndexing();
+        try {
+          await this.indexer.renameFile(this.app, file, oldPath);
+          const totalSnippets = this.indexer.getAll().length;
+          await this.finishIndexing(totalSnippets);
+          this.refreshSnippetBaseViews();
+        } catch (e) {
+          console.error("[SnippetBase] rename indexing failed:", e);
+          await this.updateIndexStatus({ isIndexing: false });
+        }
       })
     );
 
-    // Sanity log so you can confirm reloads
-    console.log("[SnippetBase] loaded");
+    // Plugin loaded successfully
+    console.debug("[SnippetBase] loaded");
 
     // Commands
     this.addCommand({
-      id: "snippetbase-rebuild-index",
-      name: "SnippetBase: Rebuild snippet index",
+      id: "rebuild-index",
+      name: "Rebuild snippet index",
       callback: async () => {
         const t0 = performance.now();
-        const recs = await this.indexer.rebuild(this.app);
+        const recs = await this.rebuildIndex();
         const ms = Math.round(performance.now() - t0);
 
-        new Notice(`SnippetBase indexed ${recs.length} snippets (${ms} ms)`);
-        console.log("[SnippetBase] indexed", recs.length, "snippets");
+        new Notice(`Indexed ${recs.length} snippets (${ms} ms)`);
+        console.debug("[SnippetBase] indexed", recs.length, "snippets");
       },
     });
 
-    this.addCommand({
-      id: "snippetbase-log-sample",
-      name: "SnippetBase: Log first 3 snippets",
-      callback: () => {
-        const recs = this.indexer.getAll().slice(0, 3);
-        console.log("[SnippetBase] sample snippets", recs);
-        new Notice(`Logged ${recs.length} snippets to console`);
-      },
-    });
 
     this.addCommand({
-      id: "snippetbase-open-tab",
-      name: "SnippetBase: Open (tab)",
+      id: "open-tab",
+      name: "Open in new tab",
       callback: async () => {
         await this.openSnippetBase("tab");
         this.settings.openLocation = "tab";
@@ -219,8 +225,8 @@ export default class SnippetBasePlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "snippetbase-open-right",
-      name: "SnippetBase: Open (right sidebar)",
+      id: "open-right-sidebar",
+      name: "Open in right sidebar",
       callback: async () => {
         await this.openSnippetBase("right");
         this.settings.openLocation = "right";
@@ -229,19 +235,18 @@ export default class SnippetBasePlugin extends Plugin {
       },
     });
 
-    this.addRibbonIcon("code-2", "Open SnippetBase", async () => {
+    this.addRibbonIcon("code-2", "Open snippet base", async () => {
       await this.openSnippetBase("tab");
     });
 
     // Optional: build index on load (nice proof-of-life)
     // Comment out if you prefer manual rebuilds during dev.
-    setTimeout(async () => {
-      try {
-        const recs = await this.indexer.rebuild(this.app);
-        console.log("[SnippetBase] initial index:", recs.length);
-      } catch (e) {
+    setTimeout(() => {
+      void this.rebuildIndex().then((recs) => {
+        console.debug("[SnippetBase] initial index:", recs.length);
+      }).catch((e) => {
         console.error("[SnippetBase] initial index failed", e);
-      }
+      });
     }, 300);
 
     if (this.settings.reopenOnStartup) {
@@ -253,15 +258,15 @@ export default class SnippetBasePlugin extends Plugin {
   }
 
   onunload() {
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_SNIPPETBASE);
-    console.log("[SnippetBase] unloaded");
+    // Cleanup will be handled automatically by Obsidian
+    console.debug("[SnippetBase] unloaded");
   }
 
   async loadSettings() {
     this.settings = Object.assign(
       {},
       DEFAULT_SETTINGS,
-      (await this.loadData()) as Partial<MyPluginSettings>
+      (await this.loadData()) as Partial<SnippetBaseSettings>
     );
   }
 
@@ -270,18 +275,3 @@ export default class SnippetBasePlugin extends Plugin {
   }
 }
 
-// Keep this only if you're still using it for quick tests.
-// You can delete it later.
-class SampleModal extends Modal {
-  constructor(app: App) {
-    super(app);
-  }
-
-  onOpen() {
-    this.contentEl.setText("Woah!");
-  }
-
-  onClose() {
-    this.contentEl.empty();
-  }
-}

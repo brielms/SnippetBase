@@ -1,8 +1,13 @@
-import {App, PluginSettingTab, Setting} from "obsidian";
-import MyPlugin from "./main";
+import {App, Plugin, PluginSettingTab, Setting, Notice} from "obsidian";
 
-export interface MyPluginSettings {
-	mySetting: string;
+interface PluginWithSettings {
+	settings: SnippetBaseSettings;
+	getIndexStatus(): { totalSnippets: number; lastUpdated: number; isIndexing: boolean };
+	rebuildIndex(): Promise<unknown[]>;
+	saveSettings(): Promise<void>;
+}
+
+export interface SnippetBaseSettings {
 	reopenOnStartup: boolean;
 	openLocation: "tab" | "right";
 	favorites: Record<string, true>; // snippet ID -> true
@@ -13,8 +18,7 @@ export interface MyPluginSettings {
 	};
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default',
+export const DEFAULT_SETTINGS: SnippetBaseSettings = {
 	reopenOnStartup: false,
 	openLocation: "tab",
 	favorites: {},
@@ -25,11 +29,11 @@ export const DEFAULT_SETTINGS: MyPluginSettings = {
 	},
 }
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class SnippetBaseSettingTab extends PluginSettingTab {
+	plugin: PluginWithSettings;
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
+	constructor(app: App, plugin: PluginWithSettings) {
+		super(app, plugin as unknown as Plugin);
 		this.plugin = plugin;
 	}
 
@@ -39,14 +43,67 @@ export class SampleSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+			.setName("About")
+			.setHeading();
+
+		// Status information
+		const status: { totalSnippets: number; lastUpdated: number } = this.plugin.getIndexStatus();
+
+		new Setting(containerEl)
+			.setName("Status")
+			.setHeading();
+		new Setting(containerEl)
+			.setDesc(`${status.totalSnippets} snippets indexed${status.lastUpdated > 0 ? ` • Last updated: ${new Date(status.lastUpdated).toLocaleString()}` : ''}`);
+
+		// Settings
+		new Setting(containerEl)
+			.setName("Reopen on startup")
+			.setDesc("Automatically open snippet base when Obsidian starts")
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.reopenOnStartup)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.reopenOnStartup = value;
 					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName("Default open location")
+			.setDesc("Where to open snippet base by default")
+			.addDropdown(dropdown => dropdown
+				.addOption("tab", "New tab")
+				.addOption("right", "Right sidebar")
+				.setValue(this.plugin.settings.openLocation)
+				.onChange(async (value: "tab" | "right") => {
+					this.plugin.settings.openLocation = value;
+					await this.plugin.saveSettings();
+				}));
+
+		// Actions
+		new Setting(containerEl)
+			.setName("Actions")
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName("Rebuild snippet index")
+			.setDesc("Manually rebuild the snippet database")
+			.addButton(button => button
+				.setButtonText("Rebuild index")
+				.setCta()
+				.onClick(async () => {
+					button.setButtonText("Rebuilding...");
+					button.setDisabled(true);
+
+					try {
+						const recs = await this.plugin.rebuildIndex();
+						new Notice(`Rebuilt index: ${recs.length} snippets found`);
+						this.display(); // Refresh to show updated status
+					} catch (err: unknown) {
+						console.error("Failed to rebuild index:", err);
+						new Notice("Failed to rebuild index (see console for details)");
+					} finally {
+						button.setButtonText("Rebuild index");
+						button.setDisabled(false);
+					}
 				}));
 	}
 }

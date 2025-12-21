@@ -78,6 +78,10 @@
 .snippetbase-row-title {
   font-weight: 600;
   margin-bottom: 4px;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .snippetbase-row-meta {
@@ -161,6 +165,16 @@
 
 .snippetbase-favorites-btn:hover {
   background: var(--interactive-accent-hover);
+}
+
+.snippetbase-favorites-btn.is-active {
+  background: var(--text-accent);
+  color: var(--text-on-accent);
+  font-weight: 700;
+}
+
+.snippetbase-favorites-btn.is-active:hover {
+  background: var(--text-accent-hover);
 }
 
 .snippetbase-row-star {

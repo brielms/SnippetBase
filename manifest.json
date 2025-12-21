@@ -6,5 +6,6 @@
 	"description": "Vault-wide database UI for fenced code snippets: search, filter, preview, copy.",
 	"author": "Matthew Briel",
 	"authorUrl": "https://github.com/brielms/snippetbase",
+	"fundingUrl": "https://buymeacoffee.com/brielms",
 	"isDesktopOnly": true
 }

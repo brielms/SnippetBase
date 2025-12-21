@@ -41,7 +41,7 @@ import type { SnippetRecord } from "../snippetBase/indexer";
     }
   
     getDisplayText(): string {
-      return "SnippetBase";
+      return "Snippet base";
     }
   
     async onOpen() {
@@ -52,7 +52,7 @@ import type { SnippetRecord } from "../snippetBase/indexer";
   
       // Header row
       const header = container.createDiv({ cls: "snippetbase-header" });
-      header.createEl("h2", { text: "SnippetBase" });
+      header.createEl("h2", { text: "Snippet base" });
   
       const headerBtns = header.createDiv({ cls: "snippetbase-header-btns" });
   
@@ -97,12 +97,13 @@ import type { SnippetRecord } from "../snippetBase/indexer";
       };
 
       const favoritesBtn = controls.createEl("button", {
-        text: "★ Favorites",
+        text: "★ favorites",
         cls: "snippetbase-favorites-btn",
       });
       favoritesBtn.onclick = () => {
         this.showFavoritesOnly = !this.showFavoritesOnly;
-        favoritesBtn.setText(this.showFavoritesOnly ? "★ Show All" : "★ Favorites");
+        favoritesBtn.setText(this.showFavoritesOnly ? "★ Show all" : "★ Favorites");
+        favoritesBtn.toggleClass("is-active", this.showFavoritesOnly);
         this.renderList();
       };
 
@@ -116,12 +117,12 @@ import type { SnippetRecord } from "../snippetBase/indexer";
       const actions = right.createDiv({ cls: "snippetbase-actions" });
   
       const copyBtn = actions.createEl("button", { text: "Copy" });
-      copyBtn.onclick = async () => {
+      copyBtn.onclick = async (event) => {
         const rec = this.getSelectedRecord();
         if (!rec) return;
 
         try {
-          const includeFence = (window.event as MouseEvent | undefined)?.shiftKey ?? false;
+          const includeFence = event.shiftKey ?? false;
           const text = includeFence ? `\`\`\`${rec.language}\n${rec.content}\n\`\`\`\n` : rec.content;
           await navigator.clipboard.writeText(text);
           new Notice(includeFence ? "Copied snippet with fence" : "Copied snippet");
@@ -236,9 +237,9 @@ import type { SnippetRecord } from "../snippetBase/indexer";
           cls: "snippetbase-row-star",
           text: this.plugin.isFavorite(r.id) ? "★" : "☆",
         });
-        starIcon.onclick = (e) => {
+        starIcon.onclick = async (e) => {
           e.stopPropagation();
-          this.plugin.toggleFavorite(r.id);
+          await this.plugin.toggleFavorite(r.id);
           this.renderList(); // Re-render to update star appearance
         };
 
@@ -293,12 +294,12 @@ import type { SnippetRecord } from "../snippetBase/indexer";
       const md = this.fenceWrap(rec.language, content);
 
       // Render as Reading-mode markdown (native syntax highlighting)
-      MarkdownRenderer.render(
+      void MarkdownRenderer.render(
         this.app,
         md,
         this.previewEl,
         rec.notePath,      // source path for links (not super relevant here)
-        this.plugin        // plugin context for lifecycle
+        this              // view context for lifecycle
       );
 
       if (truncated) {
@@ -352,16 +353,14 @@ import type { SnippetRecord } from "../snippetBase/indexer";
         return hay.includes(q);
       });
 
-      // Sort favorites to top when favorites filter is active
-      if (this.showFavoritesOnly) {
-        filtered.sort((a, b) => {
-          const aFav = this.plugin.isFavorite(a.id);
-          const bFav = this.plugin.isFavorite(b.id);
-          if (aFav && !bFav) return -1;
-          if (!aFav && bFav) return 1;
-          return 0; // maintain current order for same favorite status
-        });
-      }
+      // Sort favorites to top always
+      filtered.sort((a, b) => {
+        const aFav = this.plugin.isFavorite(a.id);
+        const bFav = this.plugin.isFavorite(b.id);
+        if (aFav && !bFav) return -1;
+        if (!aFav && bFav) return 1;
+        return 0; // maintain current order for same favorite status
+      });
 
       return filtered;
     }
@@ -380,7 +379,7 @@ import type { SnippetRecord } from "../snippetBase/indexer";
       const view = leaf.view;
       if (view instanceof MarkdownView) {
         const editor = view.editor;
-        const line = Math.max(0, rec.startLine);
+        const line = Math.max(0, rec.startLine + 1);
         editor.setCursor({ line, ch: 0 });
         editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
       }

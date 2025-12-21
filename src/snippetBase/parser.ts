@@ -104,3 +104,36 @@ export function parseFencedCodeBlocks(markdown: string): ParsedSnippet[] {
 
   return snippets;
 }
+
+// Test function for unclosed fence edge case
+// This ensures unclosed fences don't break parsing or indexing
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function testUnclosedFence() {
+  const testCases = [
+    {
+      name: "unclosed fence at end",
+      input: "# Test\n```javascript\nconsole.log('hello');\n",
+      expectedSnippets: 0,
+    },
+    {
+      name: "unclosed fence with valid fences after",
+      input: "# Test\n```javascript\nconsole.log('hello');\n```\n\n# Another\n```python\nprint('world')\n```",
+      expectedSnippets: 1,
+    },
+    {
+      name: "multiple unclosed fences",
+      input: "# Test\n```javascript\ncode1\n```\n```python\ncode2\n",
+      expectedSnippets: 1,
+    },
+  ];
+
+  for (const test of testCases) {
+    const result = parseFencedCodeBlocks(test.input);
+    if (result.length !== test.expectedSnippets) {
+      console.warn(`[SnippetBase parser test] "${test.name}" failed: expected ${test.expectedSnippets} snippets, got ${result.length}`);
+    }
+  }
+}
+
+// Run test in development (uncomment for debugging)
+// testUnclosedFence();
