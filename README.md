@@ -13,7 +13,7 @@ A vault-wide database UI for fenced code snippets in Obsidian. Search, filter, p
 
 ## Manual Installation
 
-1. Download the latest release from [GitHub Releases](https://github.com/matthewbriel/snippetbase/releases)
+1. Download the latest release from [GitHub Releases](https://github.com/brielms/SnippetBase/releases)
 2. Extract the files to your vault's `.obsidian/plugins/snippetbase/` folder
 3. Reload Obsidian and enable "SnippetBase" in **Settings → Community plugins**
 
