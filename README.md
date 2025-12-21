@@ -63,9 +63,6 @@ All data is stored locally in your vault under `.obsidian/plugins/snippetbase/` 
 - **Copy**: Click the copy button to copy snippet content to clipboard
 - **Preview**: Click any snippet to see full syntax-highlighted preview
 
-### Commands
-- `SnippetBase: Rebuild snippet index` - Manually rebuild the snippet database
-
 ## Screenshots
 
 *Main interface with snippet list and syntax-highlighted preview*
@@ -73,6 +70,9 @@ All data is stored locally in your vault under `.obsidian/plugins/snippetbase/` 
 
 *Filter controls and search functionality*
 ![Filter controls for narrowing down snippets](screenshots/filters.png)
+
+### Commands
+- `SnippetBase: Rebuild snippet index` - Manually rebuild the snippet database
 
 ## Privacy
 
