@@ -19,6 +19,14 @@ Search, filter, and copy code snippets instantly - perfect for developers who co
 - **Multiple Views**: Open in tab or right sidebar
 - **Fast Performance**: Optimized for large vaults with hundreds of snippets
 
+## Screenshots
+
+*Main interface with snippet list and syntax-highlighted preview*
+![Snippet list with filters and preview pane](screenshots/snippet-list.png)
+
+*Filter controls and search functionality*
+![Filter controls for narrowing down snippets](screenshots/filters.png)
+
 ## How it works
 
 SnippetBase automatically indexes all fenced code blocks from your markdown files and maintains a searchable database. When you modify, rename, or delete notes, the index updates incrementally to stay current.
@@ -62,14 +70,6 @@ All data is stored locally in your vault under `.obsidian/plugins/snippetbase/` 
 - **Favorites**: Click the star icon to favorite/unfavorite snippets
 - **Copy**: Click the copy button to copy snippet content to clipboard
 - **Preview**: Click any snippet to see full syntax-highlighted preview
-
-## Screenshots
-
-*Main interface with snippet list and syntax-highlighted preview*
-![Snippet list with filters and preview pane](screenshots/snippet-list.png)
-
-*Filter controls and search functionality*
-![Filter controls for narrowing down snippets](screenshots/filters.png)
 
 ### Commands
 - `SnippetBase: Rebuild snippet index` - Manually rebuild the snippet database
