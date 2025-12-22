@@ -259,3 +259,14 @@
   opacity: 0.7;
   margin-top: 2px;
 }
+
+/* License status styling */
+.snippetbase-license-pro {
+  border-left: 4px solid #10b981;
+  padding-left: 12px;
+}
+
+.snippetbase-license-free {
+  border-left: 4px solid #ef4444;
+  padding-left: 12px;
+}

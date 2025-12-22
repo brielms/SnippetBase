@@ -4,9 +4,7 @@ import { Notice, Plugin, TFile } from "obsidian";
 import { SnippetIndexer } from "./snippetBase/indexer";
 import { DEFAULT_SETTINGS, SnippetBaseSettings, SnippetBaseSettingTab } from "./settings";
 import { SnippetBaseView, VIEW_TYPE_SNIPPETBASE } from "./ui/SnippetBaseView";
-import type { SnippetRecord } from "./snippetBase/indexer";
-import { getDeviceFingerprint, requirePro } from "./licensing/license";
-import { uint8ArrayToBase64url } from "./licensing/crypto";
+import { requirePro } from "./licensing/license";
 
 export default class SnippetBasePlugin extends Plugin {
   settings: SnippetBaseSettings;
@@ -152,12 +150,6 @@ export default class SnippetBasePlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
-    // Initialize install salt for device fingerprinting (first run only)
-    if (!this.settings.installSalt) {
-      const salt = crypto.getRandomValues(new Uint8Array(16));
-      this.settings.installSalt = uint8ArrayToBase64url(salt);
-      await this.saveSettings();
-    }
 
     // Initialize license state
     await this.updateLicenseState();
@@ -250,7 +242,7 @@ export default class SnippetBasePlugin extends Plugin {
 
     this.addCommand({
       id: "copy-fill-selected",
-      name: "Copy (Fill…)",
+      name: "Copy (fill…)",
       callback: async () => {
         // Pro feature: placeholder filling with modal
         if (!await requirePro("Copy with placeholders", this.settings.licenseKey)) {
@@ -259,7 +251,7 @@ export default class SnippetBasePlugin extends Plugin {
 
         const view = this.app.workspace.getActiveViewOfType(SnippetBaseView);
         if (!view) {
-          new Notice("SnippetBase view is not active");
+          new Notice("Snippet base view is not active");
           return;
         }
 
@@ -316,11 +308,10 @@ export default class SnippetBasePlugin extends Plugin {
    * Update cached license state by verifying license key
    */
   async updateLicenseState() {
-    const { licenseKey, installSalt } = this.settings;
+    const { licenseKey } = this.settings;
 
     try {
-      const { verifyLicenseKey, getDeviceFingerprint } = await import('./licensing/license');
-      const { base64urlToUint8Array } = await import('./licensing/crypto');
+      const { verifyLicenseKey } = await import('./licensing/license');
 
       // Verify license key
       const licenseResult = await verifyLicenseKey(licenseKey || '');
@@ -336,12 +327,6 @@ export default class SnippetBasePlugin extends Plugin {
         this.settings.licenseState.email = licenseResult.email;
         this.settings.licenseState.buyerId = licenseResult.buyerId;
         this.settings.licenseState.seats = licenseResult.seats;
-
-        // Bind device on first valid license use
-        if (!this.settings.boundDeviceHash) {
-          const saltBytes = installSalt ? base64urlToUint8Array(installSalt) : undefined;
-          this.settings.boundDeviceHash = await getDeviceFingerprint(saltBytes);
-        }
       }
 
       await this.saveSettings();
@@ -360,20 +345,5 @@ export default class SnippetBasePlugin extends Plugin {
     return this.settings.licenseState?.isPro ?? false;
   }
 
-  /**
-   * Check if device binding warning should be shown
-   */
-  shouldShowDeviceBindingWarning(): boolean {
-    const { boundDeviceHash, suppressMultiDeviceWarning, licenseState } = this.settings;
-
-    if (!licenseState?.isPro || !boundDeviceHash || suppressMultiDeviceWarning) {
-      return false;
-    }
-
-    // We can't do async device hash calculation in a sync method
-    // For now, just check if boundDeviceHash exists and license is valid
-    // The UI will handle the actual warning display
-    return true;
-  }
 }
 

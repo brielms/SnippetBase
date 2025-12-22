@@ -1,6 +1,6 @@
 // src/ui/PlaceholderModal.ts
 
-import { App, Modal, Setting, ButtonComponent, TextComponent, DropdownComponent, TFile } from "obsidian";
+import { App, Modal, Setting, ButtonComponent, TextComponent, DropdownComponent } from "obsidian";
 import { PlaceholderSpec, PlaceholderValues } from "../snippetBase/placeholders";
 
 interface PlaceholderUiSettings {

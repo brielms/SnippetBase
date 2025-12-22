@@ -1,6 +1,23 @@
 // src/licensing/crypto.ts
 // Ed25519 signature verification using Web Crypto API
 
+// Type declarations for Node.js compatibility
+declare const Buffer: {
+  from: (data: string | Uint8Array, encoding?: string) => { toString: (encoding: string) => string };
+} | undefined;
+
+// Node.js compatibility helpers
+const atob = globalThis.atob || ((str: string) => {
+  // Node.js fallback using Buffer
+  const buf = Buffer!.from(str, 'base64');
+  return buf.toString('binary');
+});
+const btoa = globalThis.btoa || ((str: string) => {
+  // Node.js fallback using Buffer
+  const buf = Buffer!.from(str, 'binary');
+  return buf.toString('base64');
+});
+
 /**
  * Decode base64url string to Uint8Array
  * Base64url uses URL-safe characters: A-Z, a-z, 0-9, -, _
@@ -15,14 +32,8 @@ export function base64urlToUint8Array(base64url: string): Uint8Array {
   const padding = (4 - (base64.length % 4)) % 4;
   const padded = base64 + '='.repeat(padding);
 
-  // Decode base64 to binary string, then to Uint8Array
-  let binary: string;
-  if (typeof globalThis.atob === 'function') {
-    binary = globalThis.atob(padded);
-  } else {
-    // Node.js fallback
-    binary = Buffer.from(padded, 'base64').toString('binary');
-  }
+  // Decode base64 to binary string
+  const binary = atob(padded);
 
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
@@ -36,13 +47,7 @@ export function base64urlToUint8Array(base64url: string): Uint8Array {
  */
 export function uint8ArrayToBase64url(bytes: Uint8Array): string {
   const binary = String.fromCharCode(...bytes);
-  let base64: string;
-  if (typeof globalThis.btoa === 'function') {
-    base64 = globalThis.btoa(binary);
-  } else {
-    // Node.js fallback
-    base64 = Buffer.from(binary, 'binary').toString('base64');
-  }
+  const base64 = btoa(binary);
 
   return base64
     .replace(/\+/g, '-')

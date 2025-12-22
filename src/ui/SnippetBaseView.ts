@@ -134,7 +134,7 @@ import { PlaceholderModal } from "./PlaceholderModal";
         }
       };
 
-      const fillCopyBtn = actions.createEl("button", { text: "Copy (Fill…)" });
+      const fillCopyBtn = actions.createEl("button", { text: "Copy (fill…)" });
       fillCopyBtn.onclick = async () => {
         const rec = this.getSelectedRecord();
         if (!rec) return;
@@ -257,7 +257,7 @@ import { PlaceholderModal } from "./PlaceholderModal";
         };
 
         const fillCopyBtn = actions.createEl("button", {
-          text: "Copy (Fill…)",
+          text: "Copy (fill…)",
           cls: "snippetbase-row-action-btn",
         });
         fillCopyBtn.onclick = async (e) => {
@@ -410,7 +410,7 @@ import { PlaceholderModal } from "./PlaceholderModal";
     async copySnippetWithPlaceholders(rec: SnippetRecord) {
       // Defense in depth: check Pro status in the UI layer too
       if (!this.plugin.isProEnabled()) {
-        new Notice("Pro feature — enter license + activation in settings");
+        new Notice("Pro feature — enter your license key in settings");
         return;
       }
 
@@ -434,21 +434,26 @@ import { PlaceholderModal } from "./PlaceholderModal";
         specs,
         this.plugin.settings.placeholderHistory,
         this.plugin.settings.placeholderUi,
-        async (values: PlaceholderValues) => {
+        (values: PlaceholderValues) => {
           try {
             const filledText = applyPlaceholders(rec.content, values, specs);
-            await navigator.clipboard.writeText(filledText);
+            // Don't await - fire and forget for clipboard
+            navigator.clipboard.writeText(filledText).then(() => {
+              new Notice("Copied filled snippet");
+            }).catch((e) => {
+              console.error("[SnippetBase] clipboard failed", e);
+              new Notice("Copy failed (see console)");
+            });
 
             // Update history
             for (const [key, value] of Object.entries(values)) {
               this.plugin.settings.placeholderHistory[key] = value;
             }
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
 
-            new Notice("Copied filled snippet");
           } catch (e) {
-            console.error("[SnippetBase] clipboard failed", e);
-            new Notice("Copy failed (see console)");
+            console.error("[SnippetBase] placeholder processing failed", e);
+            new Notice("Processing failed (see console)");
           }
         }
       );

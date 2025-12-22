@@ -11,23 +11,19 @@ export function parseDateExpr(expr: string, now?: Date): { iso: string; ok: bool
 
   try {
     let baseDate: Date;
-    let hasValidBase = false;
 
     // Parse base date
     if (normalized.startsWith('today')) {
       baseDate = new Date(nowDate);
-      hasValidBase = true;
     } else if (/^\d{4}-\d{2}-\d{2}/.test(normalized)) {
       // Literal date like "2025-12-21"
       const literalMatch = normalized.match(/^(\d{4}-\d{2}-\d{2})/);
       if (!literalMatch) throw new Error('Invalid date format');
       baseDate = new Date(literalMatch[1]! + 'T12:00:00'); // Use noon to avoid DST issues
-      hasValidBase = true;
     } else {
       // Check if we have offsets without a base (implicit today)
       if (/^[+-]/.test(normalized)) {
         baseDate = new Date(nowDate);
-        hasValidBase = true;
       } else {
         throw new Error('Invalid base date');
       }
@@ -39,11 +35,9 @@ export function parseDateExpr(expr: string, now?: Date): { iso: string; ok: bool
     // Parse offsets
     const offsetRegex = /([+-])(\d+)([dwmy])/g;
     let remaining = normalized.replace(/^(today|\d{4}-\d{2}-\d{2})/, '');
-    let hasOffsets = false;
 
     let match;
     while ((match = offsetRegex.exec(remaining)) !== null) {
-      hasOffsets = true;
       const sign = match[1] === '+' ? 1 : -1;
       const amount = parseInt(match[2]!, 10);
       const unit = match[3]!;
@@ -55,7 +49,7 @@ export function parseDateExpr(expr: string, now?: Date): { iso: string; ok: bool
         case 'w':
           baseDate.setDate(baseDate.getDate() + sign * amount * 7);
           break;
-        case 'm':
+        case 'm': {
           // Handle month addition with day clamping
           const monthOriginalDay = baseDate.getDate();
           baseDate.setMonth(baseDate.getMonth() + sign * amount);
@@ -66,7 +60,8 @@ export function parseDateExpr(expr: string, now?: Date): { iso: string; ok: bool
             baseDate.setDate(0); // Set to last day of previous month
           }
           break;
-        case 'y':
+        }
+        case 'y': {
           // Handle year addition with day clamping (for leap year Feb 29)
           const yearOriginalMonth = baseDate.getMonth();
           const yearOriginalDay = baseDate.getDate();
@@ -80,6 +75,7 @@ export function parseDateExpr(expr: string, now?: Date): { iso: string; ok: bool
             baseDate.setDate(28);
           }
           break;
+        }
         default:
           throw new Error(`Unknown unit: ${unit}`);
       }

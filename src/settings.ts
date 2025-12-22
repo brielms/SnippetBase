@@ -1,6 +1,4 @@
 import {App, Plugin, PluginSettingTab, Setting, Notice} from "obsidian";
-import { getDeviceFingerprint } from "./licensing/license";
-import { base64urlToUint8Array } from "./licensing/crypto";
 
 interface PluginWithSettings {
 	settings: SnippetBaseSettings;
@@ -27,8 +25,6 @@ export interface SnippetBaseSettings {
 	// License fields for SnippetBase Pro
 	licenseKey?: string;
 	installSalt?: string; // base64 encoded random salt for device fingerprinting
-	boundDeviceHash?: string; // device hash bound to license on first use
-	suppressMultiDeviceWarning?: boolean; // user can suppress device binding warnings
 	licenseState?: {
 		isPro: boolean;
 		licenseId?: string;
@@ -53,7 +49,6 @@ export const DEFAULT_SETTINGS: SnippetBaseSettings = {
 		isIndexing: false,
 	},
 	// License defaults
-	suppressMultiDeviceWarning: false,
 	licenseState: {
 		isPro: false,
 		checkedAt: 0,
@@ -129,7 +124,7 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 						new Notice(`Rebuilt index: ${recs.length} snippets found`);
 						this.display(); // Refresh to show updated status
 					} catch (err: unknown) {
-						console.error("Failed to rebuild index:", err);
+						console.warn("Failed to rebuild index:", err);
 						new Notice("Failed to rebuild index (see console for details)");
 					} finally {
 						button.setButtonText("Rebuild index");
@@ -139,7 +134,7 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 
 		// SnippetBase Pro section
 		new Setting(containerEl)
-			.setName("SnippetBase Pro")
+			.setName("Pro features")
 			.setHeading();
 
 		// Status display
@@ -151,19 +146,17 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 		// Add visual indicator for license state
 		const state = this.plugin.settings.licenseState;
 		if (state?.isPro) {
-			statusEl.settingEl.style.borderLeft = '4px solid #10b981';
-			statusEl.settingEl.style.paddingLeft = '12px';
+			statusEl.settingEl.addClass('snippetbase-license-pro');
 		} else {
-			statusEl.settingEl.style.borderLeft = '4px solid #ef4444';
-			statusEl.settingEl.style.paddingLeft = '12px';
+			statusEl.settingEl.addClass('snippetbase-license-free');
 		}
 
-		// License Key input
+		// License key input
 		new Setting(containerEl)
-			.setName("License Key")
-			.setDesc("Enter your SnippetBase Pro license key")
+			.setName("License key")
+			.setDesc("Enter your license key")
 			.addText(text => text
-				.setPlaceholder("SB1.xxxx.xxxx")
+				.setPlaceholder("Enter license key")
 				.setValue(this.plugin.settings.licenseKey || "")
 				.onChange(async (value) => {
 					this.plugin.settings.licenseKey = value.trim() || undefined;
@@ -185,54 +178,21 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 				.setDesc(`${state.seats || 1} seat${(state.seats || 1) > 1 ? 's' : ''}`);
 		}
 
-		// Device binding warning (simplified)
-		if (this.plugin.settings.boundDeviceHash && this.plugin.settings.licenseState?.isPro && !this.plugin.settings.suppressMultiDeviceWarning) {
-			const seats = this.plugin.settings.licenseState.seats || 1;
-			const message = seats === 1
-				? "This license appears to be used on multiple devices. Please buy another seat for multi-device use."
-				: `This license includes ${seats} seats; consider a team key if needed.`;
-
+		// Keep informational seats display (no warnings)
+		if (this.plugin.settings.licenseState?.isPro && this.plugin.settings.licenseState.seats) {
 			new Setting(containerEl)
-				.setName("Device Notice")
-				.setDesc(message)
-				.addButton(button => button
-					.setButtonText("Don't show again")
-					.setWarning()
-					.onClick(async () => {
-						this.plugin.settings.suppressMultiDeviceWarning = true;
-						await this.plugin.saveSettings();
-						this.display();
-					}));
+				.setName("Seats")
+				.setDesc(`This license includes ${this.plugin.settings.licenseState.seats} seats. Personal license intended for 1 device.`);
 		}
-
-		// Advanced section
-		new Setting(containerEl)
-			.setName("Advanced")
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName("Reset device binding")
-			.setDesc("Clear device binding (allows re-binding to current device)")
-			.addButton(button => button
-				.setButtonText("Reset binding")
-				.setWarning()
-				.onClick(async () => {
-					this.plugin.settings.boundDeviceHash = undefined;
-					await this.plugin.saveSettings();
-					await this.plugin.updateLicenseState(); // Re-bind to current device
-					this.display();
-					new Notice("Device binding reset");
-				}));
 
 		new Setting(containerEl)
 			.setName("Clear license")
-			.setDesc("Clear license key and device binding")
+			.setDesc("Clear license key")
 			.addButton(button => button
 				.setButtonText("Clear license")
 				.setWarning()
 				.onClick(async () => {
 					this.plugin.settings.licenseKey = undefined;
-					this.plugin.settings.boundDeviceHash = undefined;
 					await this.plugin.updateLicenseState();
 					this.display();
 					new Notice("License cleared");
@@ -241,7 +201,7 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 
 	private getLicenseStatusText(): string {
 		const state = this.plugin.settings.licenseState;
-		console.log('[SnippetBase] License state for status:', state);
+		console.debug('[SnippetBase] License state for status:', state);
 
 		if (!state || !state.isPro) {
 			return "Pro features disabled — enter license key above";

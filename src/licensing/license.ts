@@ -18,16 +18,30 @@ const PUBLIC_KEY_BASE64URL = 'Dwc1rmTPKzT81CwnAyoWKBkc2pzjBuAwfWzjgiiYUR4';
 // Convert embedded public key to bytes
 const PUBLIC_KEY_BYTES = base64urlToUint8Array(PUBLIC_KEY_BASE64URL);
 
+export interface LicensePayload {
+  v: number;
+  product: string;
+  plan: string;
+  licenseId: string;
+  issuedAt: number;
+  email?: string;
+  buyerId?: string;
+  seats?: number;
+}
+
 export interface ParsedToken {
   prefix: "SB1";
   payloadB64: string;
-  payload: any;
+  payload: LicensePayload;
   sig: Uint8Array;
 }
 
 export interface LicenseVerification {
   ok: boolean;
   licenseId?: string;
+  email?: string;
+  buyerId?: string;
+  seats?: number;
   error?: string;
 }
 
@@ -48,7 +62,7 @@ export function parseToken(token: string): ParsedToken | null {
     // Decode payload (JSON)
     const payloadBytes = base64urlToUint8Array(payloadB64 as string);
     const payloadJson = new TextDecoder().decode(payloadBytes);
-    const payload = JSON.parse(payloadJson);
+    const payload = JSON.parse(payloadJson) as LicensePayload;
 
     // Decode signature
     const sig = base64urlToUint8Array(sigB64 as string);
@@ -105,23 +119,20 @@ export async function verifyLicenseKey(token: string): Promise<LicenseVerificati
     }
 
     // Verify signature over canonical message: prefix + "." + payloadB64
-    // In plugin environment, we rely on proper token generation rather than runtime crypto verification
-    // This avoids issues with Web Crypto API limitations in Electron environments
-    if (!token.includes('mock-signature')) {
-      try {
-        const message = `${prefix}.${payloadB64}`;
-        const messageBytes = new TextEncoder().encode(message);
+    const message = `${prefix}.${payloadB64}`;
+    const messageBytes = new TextEncoder().encode(message);
 
-        const signatureValid = await verifyEd25519(PUBLIC_KEY_BYTES, messageBytes, sig);
+    try {
+      const signatureValid = await verifyEd25519(PUBLIC_KEY_BYTES, messageBytes, sig);
 
-        if (!signatureValid) {
-          // In some environments, crypto operations may fail due to Web Crypto API limitations
-          // For plugin licensing, we accept this risk and allow the license if payload is valid
-        }
-      } catch (cryptoError) {
-        // Crypto operations may not be available in all environments
-        // Allow license if payload structure is valid
+      if (!signatureValid) {
+        return { ok: false, error: 'Invalid signature' };
       }
+    } catch (cryptoError) {
+      // If crypto operations fail, we cannot verify the signature
+      // This is a security-critical failure - reject the license
+      console.error('[SnippetBase] Crypto verification failed:', cryptoError);
+      return { ok: false, error: 'Signature verification failed' };
     }
 
     return {
@@ -147,10 +158,9 @@ export async function getDeviceFingerprint(installSalt?: Uint8Array): Promise<st
   const salt = installSalt || crypto.getRandomValues(new Uint8Array(16));
 
   // Create fingerprint string - stable per machine but not personally identifying
+  // Note: Using minimal platform detection to avoid Obsidian platform API restrictions
   const fingerprintData = {
-    appId: (globalThis as any).appId || 'obsidian', // Obsidian app identifier
-    platform: process.platform,
-    osRelease: process.release?.name || 'unknown',
+    appId: 'obsidian', // Obsidian app identifier
     installSalt: uint8ArrayToBase64url(salt),
   };
 
@@ -192,8 +202,8 @@ export async function requirePro(
     // In tests, this will fail gracefully and not break the test
     try {
       const { Notice } = await import('obsidian');
-      new Notice(`Pro feature — enter license + activation in settings`);
-    } catch (error) {
+      new Notice(`Pro feature — enter your license key in settings`);
+    } catch {
       // Silently fail in test environments where obsidian is not available
       console.debug('[SnippetBase] Notice not available (test environment)');
     }
@@ -201,17 +211,3 @@ export async function requirePro(
   return enabled;
 }
 
-/**
- * Check if device binding warning should be shown
- * Returns true if warning should be displayed (non-blocking)
- */
-export function shouldShowDeviceBindingWarning(
-  boundDeviceHash: string | undefined,
-  currentDeviceHash: string,
-  suppressWarning: boolean
-): boolean {
-  if (suppressWarning || !boundDeviceHash) {
-    return false;
-  }
-  return boundDeviceHash !== currentDeviceHash;
-}

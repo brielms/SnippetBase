@@ -5,6 +5,7 @@ import globals from "globals";
 
 export default defineConfig([
 	...obsidianmd.configs.recommended,
+	...obsidianmd.configs.recommendedWithLocalesEn,
 	{
 		files: ["**/*.ts"],
 		languageOptions: {
@@ -49,5 +50,12 @@ export default defineConfig([
 		"data.json",
 		"package-lock.json",
 		"tsconfig.json",
+		"debug-date.js",
+		"test-license.js",
+		"test-placeholders.js",
+		"test-signature.mjs",
+		"tools/**",
+		"tests/**",
+		"scripts/**",
 	]),
 ]);
