@@ -17,14 +17,14 @@ export default class SnippetBasePlugin extends Plugin {
   }
 
   async rebuildIndex() {
-    await this.startIndexing();
+    this.startIndexing();
     try {
       const records = await this.indexer.rebuild(this.app);
       this.cleanupStaleFavorites();
-      await this.finishIndexing(records.length);
+      this.finishIndexing(records.length);
       return records;
     } catch (e) {
-      await this.updateIndexStatus({ isIndexing: false });
+      this.updateIndexStatus({ isIndexing: false });
       throw e;
     }
   }
@@ -65,7 +65,7 @@ export default class SnippetBasePlugin extends Plugin {
       }).catch(async (e) => {
         console.error("[SnippetBase] incremental index failed:", e);
         if (this.reindexTimers.size === 1) {
-          await this.updateIndexStatus({ isIndexing: false });
+          this.updateIndexStatus({ isIndexing: false });
         }
       }).finally(() => {
         this.reindexTimers.delete(key);
@@ -118,7 +118,7 @@ export default class SnippetBasePlugin extends Plugin {
     return this.settings.indexStatus;
   }
 
-  async updateIndexStatus(updates: Partial<SnippetBaseSettings['indexStatus']>) {
+  updateIndexStatus(updates: Partial<SnippetBaseSettings['indexStatus']>) {
     Object.assign(this.settings.indexStatus, updates);
     this.refreshSnippetBaseViews();
     this.debouncedSaveSettings();
@@ -134,12 +134,12 @@ export default class SnippetBasePlugin extends Plugin {
     }, 500);
   }
 
-  async startIndexing() {
-    await this.updateIndexStatus({ isIndexing: true });
+  startIndexing() {
+    this.updateIndexStatus({ isIndexing: true });
   }
 
-  async finishIndexing(totalSnippets: number) {
-    await this.updateIndexStatus({
+  finishIndexing(totalSnippets: number) {
+    this.updateIndexStatus({
       isIndexing: false,
       totalSnippets,
       lastUpdated: Date.now(),
@@ -182,15 +182,15 @@ export default class SnippetBasePlugin extends Plugin {
       this.app.vault.on("rename", async (file, oldPath) => {
         if (!this.isMarkdownFile(file)) return;
         // drop old path, index new path
-        await this.startIndexing();
+        this.startIndexing();
         try {
           await this.indexer.renameFile(this.app, file, oldPath);
           const totalSnippets = this.indexer.getAll().length;
-          await this.finishIndexing(totalSnippets);
+          this.finishIndexing(totalSnippets);
           this.refreshSnippetBaseViews();
         } catch (e) {
           console.error("[SnippetBase] rename indexing failed:", e);
-          await this.updateIndexStatus({ isIndexing: false });
+          this.updateIndexStatus({ isIndexing: false });
         }
       })
     );

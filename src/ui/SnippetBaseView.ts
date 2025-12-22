@@ -144,6 +144,7 @@ import type { SnippetRecord } from "../snippetBase/indexer";
   
       // first paint
       this.refresh();
+      return Promise.resolve();
     }
   
     async onClose() {
