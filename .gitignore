@@ -28,5 +28,12 @@ private-key*
 tools/private-key*
 tests/fixtures/licenses.private.json
 
+# Test files containing license keys (may include real customer data)
+test-license.js
+test-license-validation.mjs
+test-verification.mjs
+scripts/test-plugin-license.mjs
+scripts/test-license.mjs
+
 # Temporary test output
 .tmp/

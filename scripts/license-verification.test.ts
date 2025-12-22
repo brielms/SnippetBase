@@ -147,31 +147,33 @@ async function testPrivateFixtures() {
 
   try {
     const fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
-    const tokens = fixtures.tokens || [];
+    const licenses = fixtures.licenses || [];
 
-    if (tokens.length === 0) {
-      console.log('  ℹ️  No tokens in private fixtures');
+    if (licenses.length === 0) {
+      console.log('  ℹ️  No licenses in private fixtures');
       return;
     }
 
     let passed = 0;
     let failed = 0;
 
-    for (const token of tokens) {
-      const result = await verifyLicenseKey(token);
+    for (const license of licenses) {
+      const result = await verifyLicenseKey(license.token);
       if (result.ok) {
         passed++;
-        console.log(`  ✅ ${result.licenseId || 'Unknown'}`);
+        console.log(`  ✅ ${license.licenseId} (${license.identity || 'no identity'})`);
       } else {
         failed++;
-        console.log(`  ❌ ${token.substring(0, 20)}...: ${result.error}`);
+        console.log(`  ❌ ${license.licenseId}: ${result.error}`);
+        console.log(`     Token: ${license.token.substring(0, 30)}...`);
+        console.log(`     Generated: ${new Date(license.generatedAt).toISOString()}`);
       }
     }
 
     console.log(`  📊 Results: ${passed} passed, ${failed} failed`);
 
     if (failed > 0) {
-      throw new Error(`${failed} private fixture tokens failed verification`);
+      throw new Error(`${failed} private fixture licenses failed verification - DO NOT DEPLOY!`);
     }
 
   } catch (error) {

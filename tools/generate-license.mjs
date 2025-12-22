@@ -5,7 +5,8 @@
 // Run with: node tools/generate-license.mjs <licenseId> [email|buyerId] [seats]
 
 import { createSign } from 'crypto';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 // Normalize base64url to base64
 function normalizeBase64(input) {
@@ -92,6 +93,16 @@ async function generateLicense() {
     // Create final token
     const token = `SB1.${payloadB64}.${signatureB64}`;
 
+    // Save to private test fixtures (for regression testing)
+    saveLicenseToFixtures({
+      licenseId,
+      identity,
+      seats,
+      issuedAt: payload.issuedAt,
+      token,
+      generatedAt: Date.now()
+    });
+
     console.log('=== SnippetBase Pro License Key ===');
     console.log('');
     console.log('License ID:', licenseId);
@@ -103,6 +114,7 @@ async function generateLicense() {
     console.log(token);
     console.log('');
     console.log('This key enables Pro features immediately when entered in settings.');
+    console.log('✅ License saved to test fixtures for regression testing.');
 
   } catch (error) {
     console.error('Failed to generate license:', error);
@@ -124,6 +136,41 @@ function base64urlEncode(bytes) {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
+}
+
+// Save license to private test fixtures for regression testing
+function saveLicenseToFixtures(licenseInfo) {
+  const fixturesPath = join(process.cwd(), 'tests/fixtures/licenses.private.json');
+
+  let fixtures = { licenses: [] };
+
+  // Load existing fixtures if they exist
+  if (existsSync(fixturesPath)) {
+    try {
+      fixtures = JSON.parse(readFileSync(fixturesPath, 'utf8'));
+    } catch (error) {
+      console.warn('Warning: Could not read existing fixtures file, starting fresh');
+    }
+  }
+
+  // Check if this license ID already exists (avoid duplicates)
+  const existingIndex = fixtures.licenses.findIndex(l => l.licenseId === licenseInfo.licenseId);
+  if (existingIndex >= 0) {
+    // Update existing license
+    fixtures.licenses[existingIndex] = licenseInfo;
+    console.log(`Updated existing license for ${licenseInfo.licenseId} in fixtures`);
+  } else {
+    // Add new license
+    fixtures.licenses.push(licenseInfo);
+    console.log(`Added new license for ${licenseInfo.licenseId} to fixtures`);
+  }
+
+  // Save fixtures file
+  try {
+    writeFileSync(fixturesPath, JSON.stringify(fixtures, null, 2));
+  } catch (error) {
+    console.warn('Warning: Could not save fixtures file:', error.message);
+  }
 }
 
 generateLicense();
