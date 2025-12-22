@@ -13,7 +13,8 @@ export default tseslint.config(
 				projectService: {
 					allowDefaultProject: [
 						'eslint.config.js',
-						'manifest.json'
+						'manifest.json',
+						'eslint.config.mjs'
 					]
 				},
 				tsconfigRootDir: import.meta.dirname,
@@ -21,7 +22,15 @@ export default tseslint.config(
 			},
 		},
 	},
+	...tseslint.configs.recommended,
 	...obsidianmd.configs.recommended,
+	...obsidianmd.configs.recommendedWithLocalesEn,
+	{
+		files: ['**/*.ts'],
+		rules: {
+			'@typescript-eslint/require-await': 'error',
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",
