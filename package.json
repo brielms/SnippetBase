@@ -11,6 +11,8 @@
 		"lint": "eslint .",
 		"test:date": "node scripts/run-date-tests.mjs",
 		"test:license": "node scripts/run-license-tests.mjs",
+		"setup": "node scripts/setup-licensing.mjs",
+		"license-status": "node scripts/license-status.mjs",
 		"deploy:local": "cp main.js manifest.json styles.css \"$OBSIDIAN_VAULT/.obsidian/plugins/snippetbase/\""
 	},
 	"keywords": [],

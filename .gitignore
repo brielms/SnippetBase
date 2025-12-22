@@ -26,6 +26,7 @@ private-key*
 *.pem
 .secrets/
 tools/private-key*
+tests/fixtures/licenses.private.json
 
 # Temporary test output
 .tmp/

@@ -2,45 +2,43 @@
 
 // tools/generate-license.mjs
 // Generate SnippetBase Pro License Key (SB1 token)
-// Run with: node tools/generate-license.mjs <licenseId> [email] [note]
+// Run with: node tools/generate-license.mjs <licenseId> [email|buyerId] [seats]
 
-import { sign } from 'crypto';
+import { createSign } from 'crypto';
 import { readFileSync } from 'fs';
 
-// Get private key from environment or file
-const privateKeyB64 = process.env.SNIPPETBASE_PRIVATE_KEY ||
-  (() => {
-    try {
-      return readFileSync('private-key.txt', 'utf8').trim();
-    } catch {
-      console.error('Private key not found!');
-      console.error('Set SNIPPETBASE_PRIVATE_KEY env var or create private-key.txt file');
-      console.error('Example: $env:SNIPPETBASE_PRIVATE_KEY = "UNGZufuwkANQZ1xFCtPcls4l-Ta_u8pNVhObknh-Jb8"');
-      process.exit(1);
-    }
-  })();
+// Normalize base64url to base64
+function normalizeBase64(input) {
+  // Convert base64url to base64
+  return input.replace(/-/g, '+').replace(/_/g, '/');
+}
 
-// Convert raw 32-byte Ed25519 private key to PKCS8 PEM format
-function rawPrivateKeyToPem(rawKeyBase64) {
-  const rawKeyBytes = Buffer.from(rawKeyBase64, 'base64');
-  if (rawKeyBytes.length !== 32) {
-    throw new Error('Invalid Ed25519 private key length');
+// Load private key from file
+let privateKeyPem;
+
+try {
+  console.log('Loading private key from private-key.pem...');
+  privateKeyPem = readFileSync('private-key.pem', 'utf8').trim();
+  console.log('✅ Private key loaded (', privateKeyPem.length, 'characters)');
+
+  if (!privateKeyPem.includes('-----BEGIN PRIVATE KEY-----')) {
+    throw new Error('Invalid PEM format - file must contain ECDSA private key in PEM format');
   }
+} catch (error) {
+  console.error('❌ Failed to load private key!');
+  console.error('Error:', error.message);
+  console.error('');
+  console.error('Make sure private-key.pem exists in the current directory.');
+  console.error('Generate it with: node tools/generate-keypair.mjs > keypair.txt');
+  console.error('Then copy the private key PEM to private-key.pem');
+  process.exit(1);
+}
 
-  // PKCS8 format for Ed25519 private key
-  // OID for Ed25519: 1.3.101.112
-  // DER encoding: 30 (sequence) + length + 02 01 00 (version) + 30 (sequence) + 05 (length) + 06 03 2B 65 70 (OID) + 04 22 (octet string + length) + 04 20 (octet string + length) + key bytes
-  const pkcs8Header = Buffer.from([
-    0x30, 0x2E, // sequence, length 46
-    0x02, 0x01, 0x00, // version
-    0x30, 0x05, // sequence, length 5
-    0x06, 0x03, 0x2B, 0x65, 0x70, // OID 1.3.101.112 (Ed25519)
-    0x04, 0x22, // octet string, length 34
-    0x04, 0x20  // octet string, length 32
-  ]);
-
-  const pkcs8 = Buffer.concat([pkcs8Header, rawKeyBytes]);
-  return `-----BEGIN PRIVATE KEY-----\n${pkcs8.toString('base64')}\n-----END PRIVATE KEY-----`;
+// Sign payload using ECDSA private key
+function signPayload(payload, privateKeyPem) {
+  const sign = createSign('SHA256');
+  sign.update(payload);
+  return sign.sign(privateKeyPem, 'base64url');
 }
 
 if (process.argv.length < 3) {
@@ -62,9 +60,6 @@ if (seatsArg && (isNaN(seats) || seats < 1)) {
 
 async function generateLicense() {
   try {
-    // Convert raw private key to PEM format
-    const privateKeyPem = rawPrivateKeyToPem(privateKeyB64);
-
     // Create license payload
     const payload = {
       v: 1,
@@ -86,15 +81,13 @@ async function generateLicense() {
 
     // Serialize payload
     const payloadJson = JSON.stringify(payload);
-    const payloadBytes = new TextEncoder().encode(payloadJson);
-    const payloadB64 = base64urlEncode(payloadBytes);
+    const payloadB64 = Buffer.from(payloadJson).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
     // Create message to sign
     const message = `SB1.${payloadB64}`;
 
-    // Sign the message using Node.js crypto
-    const signature = sign(null, Buffer.from(message), privateKeyPem);
-    const signatureB64 = base64urlEncode(signature);
+    // Sign the message using ECDSA
+    const signatureB64 = signPayload(message, privateKeyPem);
 
     // Create final token
     const token = `SB1.${payloadB64}.${signatureB64}`;

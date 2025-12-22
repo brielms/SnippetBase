@@ -24,7 +24,6 @@ export interface SnippetBaseSettings {
 	};
 	// License fields for SnippetBase Pro
 	licenseKey?: string;
-	installSalt?: string; // base64 encoded random salt for device fingerprinting
 	licenseState?: {
 		isPro: boolean;
 		licenseId?: string;
@@ -154,7 +153,7 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 		// License key input
 		new Setting(containerEl)
 			.setName("License key")
-			.setDesc("Enter your license key")
+			.setDesc("Paste your license key to enable Pro features immediately")
 			.addText(text => text
 				.setPlaceholder("Enter license key")
 				.setValue(this.plugin.settings.licenseKey || "")
@@ -174,15 +173,8 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 				.setDesc(identity);
 
 			new Setting(containerEl)
-				.setName("Seats")
-				.setDesc(`${state.seats || 1} seat${(state.seats || 1) > 1 ? 's' : ''}`);
-		}
-
-		// Keep informational seats display (no warnings)
-		if (this.plugin.settings.licenseState?.isPro && this.plugin.settings.licenseState.seats) {
-			new Setting(containerEl)
-				.setName("Seats")
-				.setDesc(`This license includes ${this.plugin.settings.licenseState.seats} seats. Personal license intended for 1 device.`);
+				.setName("License ID")
+				.setDesc(state.licenseId || "Unknown");
 		}
 
 		new Setting(containerEl)
@@ -201,7 +193,6 @@ export class SnippetBaseSettingTab extends PluginSettingTab {
 
 	private getLicenseStatusText(): string {
 		const state = this.plugin.settings.licenseState;
-		console.debug('[SnippetBase] License state for status:', state);
 
 		if (!state || !state.isPro) {
 			return "Pro features disabled — enter license key above";

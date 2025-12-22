@@ -201,7 +201,6 @@ export default class SnippetBasePlugin extends Plugin {
     );
 
     // Plugin loaded successfully
-    console.debug("[SnippetBase] loaded");
 
     // Commands
     this.addCommand({
@@ -213,7 +212,6 @@ export default class SnippetBasePlugin extends Plugin {
         const ms = Math.round(performance.now() - t0);
 
         new Notice(`Indexed ${recs.length} snippets (${ms} ms)`);
-        console.debug("[SnippetBase] indexed", recs.length, "snippets");
       },
     });
 
@@ -273,7 +271,6 @@ export default class SnippetBasePlugin extends Plugin {
     // Comment out if you prefer manual rebuilds during dev.
     setTimeout(() => {
       void this.rebuildIndex().then((recs) => {
-        console.debug("[SnippetBase] initial index:", recs.length);
       }).catch((e) => {
         console.error("[SnippetBase] initial index failed", e);
       });
@@ -289,7 +286,6 @@ export default class SnippetBasePlugin extends Plugin {
 
   onunload() {
     // Cleanup will be handled automatically by Obsidian
-    console.debug("[SnippetBase] unloaded");
   }
 
   async loadSettings() {
@@ -315,6 +311,13 @@ export default class SnippetBasePlugin extends Plugin {
 
       // Verify license key
       const licenseResult = await verifyLicenseKey(licenseKey || '');
+
+      console.log('[SnippetBase] License verification result:', {
+        keyLength: licenseKey?.length,
+        ok: licenseResult.ok,
+        error: licenseResult.error,
+        licenseId: licenseResult.licenseId
+      });
 
       // Update cached state
       this.settings.licenseState = {
