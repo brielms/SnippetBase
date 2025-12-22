@@ -4,6 +4,9 @@ import { Notice, Plugin, TFile } from "obsidian";
 import { SnippetIndexer } from "./snippetBase/indexer";
 import { DEFAULT_SETTINGS, SnippetBaseSettings, SnippetBaseSettingTab } from "./settings";
 import { SnippetBaseView, VIEW_TYPE_SNIPPETBASE } from "./ui/SnippetBaseView";
+import type { SnippetRecord } from "./snippetBase/indexer";
+import { getDeviceFingerprint, requirePro } from "./licensing/license";
+import { uint8ArrayToBase64url } from "./licensing/crypto";
 
 export default class SnippetBasePlugin extends Plugin {
   settings: SnippetBaseSettings;
@@ -149,6 +152,16 @@ export default class SnippetBasePlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
+    // Initialize install salt for device fingerprinting (first run only)
+    if (!this.settings.installSalt) {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      this.settings.installSalt = uint8ArrayToBase64url(salt);
+      await this.saveSettings();
+    }
+
+    // Initialize license state
+    await this.updateLicenseState();
+
     // Settings UI
     this.addSettingTab(new SnippetBaseSettingTab(this.app, this));
 
@@ -235,6 +248,31 @@ export default class SnippetBasePlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: "copy-fill-selected",
+      name: "Copy (Fill…)",
+      callback: async () => {
+        // Pro feature: placeholder filling with modal
+        if (!await requirePro("Copy with placeholders", this.settings.licenseKey)) {
+          return;
+        }
+
+        const view = this.app.workspace.getActiveViewOfType(SnippetBaseView);
+        if (!view) {
+          new Notice("SnippetBase view is not active");
+          return;
+        }
+
+        const rec = view.getSelectedRecord();
+        if (!rec) {
+          new Notice("No snippet selected");
+          return;
+        }
+
+        await view.copySnippetWithPlaceholders(rec);
+      },
+    });
+
     this.addRibbonIcon("code-2", "Open snippet base", async () => {
       await this.openSnippetBase("tab");
     });
@@ -272,6 +310,70 @@ export default class SnippetBasePlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * Update cached license state by verifying license key
+   */
+  async updateLicenseState() {
+    const { licenseKey, installSalt } = this.settings;
+
+    try {
+      const { verifyLicenseKey, getDeviceFingerprint } = await import('./licensing/license');
+      const { base64urlToUint8Array } = await import('./licensing/crypto');
+
+      // Verify license key
+      const licenseResult = await verifyLicenseKey(licenseKey || '');
+
+      // Update cached state
+      this.settings.licenseState = {
+        isPro: licenseResult.ok,
+        checkedAt: Date.now(),
+      };
+
+      if (licenseResult.ok) {
+        this.settings.licenseState.licenseId = licenseResult.licenseId;
+        this.settings.licenseState.email = licenseResult.email;
+        this.settings.licenseState.buyerId = licenseResult.buyerId;
+        this.settings.licenseState.seats = licenseResult.seats;
+
+        // Bind device on first valid license use
+        if (!this.settings.boundDeviceHash) {
+          const saltBytes = installSalt ? base64urlToUint8Array(installSalt) : undefined;
+          this.settings.boundDeviceHash = await getDeviceFingerprint(saltBytes);
+        }
+      }
+
+      await this.saveSettings();
+    } catch (error) {
+      console.error('[SnippetBase] License state update failed:', error);
+      // Reset to safe defaults on error
+      this.settings.licenseState = { isPro: false, checkedAt: Date.now() };
+      await this.saveSettings();
+    }
+  }
+
+  /**
+   * Check if Pro features are enabled
+   */
+  isProEnabled(): boolean {
+    return this.settings.licenseState?.isPro ?? false;
+  }
+
+  /**
+   * Check if device binding warning should be shown
+   */
+  shouldShowDeviceBindingWarning(): boolean {
+    const { boundDeviceHash, suppressMultiDeviceWarning, licenseState } = this.settings;
+
+    if (!licenseState?.isPro || !boundDeviceHash || suppressMultiDeviceWarning) {
+      return false;
+    }
+
+    // We can't do async device hash calculation in a sync method
+    // For now, just check if boundDeviceHash exists and license is valid
+    // The UI will handle the actual warning display
+    return true;
   }
 }
 
