@@ -62,7 +62,7 @@ export default class SnippetBasePlugin extends Plugin {
           const totalSnippets = this.indexer.getAll().length;
           void this.finishIndexing(totalSnippets);
         }
-      }).catch(async (e) => {
+      }).catch((e) => {
         console.error("[SnippetBase] incremental index failed:", e);
         if (this.reindexTimers.size === 1) {
           this.updateIndexStatus({ isIndexing: false });
