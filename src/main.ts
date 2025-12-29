@@ -219,7 +219,6 @@ export default class SnippetBasePlugin extends Plugin {
       callback: async () => {
         await this.openSnippetBase("tab");
         this.settings.openLocation = "tab";
-        this.settings.reopenOnStartup = true;
         await this.saveSettings();
       },
     });
@@ -230,7 +229,6 @@ export default class SnippetBasePlugin extends Plugin {
       callback: async () => {
         await this.openSnippetBase("right");
         this.settings.openLocation = "right";
-        this.settings.reopenOnStartup = true;
         await this.saveSettings();
       },
     });
