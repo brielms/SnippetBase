@@ -18,6 +18,65 @@ Search, filter, and copy code snippets instantly - perfect for developers who co
 - **Incremental Indexing**: Automatically updates when you modify markdown files
 - **Multiple Views**: Open in tab or right sidebar
 - **Fast Performance**: Optimized for large vaults with hundreds of snippets
+- **Template Placeholders**: Fill in dynamic values when copying snippets
+
+## Template Placeholders
+
+SnippetBase supports dynamic templating with placeholders that get filled in when you copy snippets. Use the "Copy (fill…)" command or button to open the placeholder modal.
+
+### Placeholder Types
+
+#### Text Placeholders
+```
+{{name}}                    # Simple text input
+{{name=John Doe}}          # Text with default value
+```
+
+#### Select Placeholders
+```
+{{language:JavaScript|Python|TypeScript}}  # Dropdown selection
+{{priority:high|medium|low}}              # Choose from options
+```
+
+#### Date Placeholders
+```
+{{date:today}}             # Today's date (YYYY-MM-DD)
+{{date:today+7d}}          # 7 days from today
+{{date:today-1w}}          # 1 week ago
+{{date:2025-12-21}}        # Specific date
+{{date:2025-12-21+1m}}     # Specific date + 1 month
+```
+
+### Date Expressions
+
+Date placeholders support complex expressions:
+- **Base dates**: `today` or `YYYY-MM-DD` format
+- **Offsets**: `+` or `-` followed by number and unit
+- **Units**: `d` (days), `w` (weeks), `m` (months), `y` (years)
+- **Examples**:
+  - `today+7d` - 7 days from today
+  - `2025-12-21-1m+3d` - Dec 21, 2025 minus 1 month plus 3 days
+  - `today+1y-6m` - Today plus 1 year minus 6 months
+
+### Usage in Snippets
+
+```javascript
+// Example: Function template
+function {{name}}({{params}}) {
+  {{body}}
+}
+
+// Example: API endpoint with date
+const API_URL = '/api/v1/reports/{{date:today-30d}}/{{language}}';
+
+// Example: Configuration with selection
+module.exports = {
+  language: '{{language:JavaScript|Python|TypeScript}}',
+  priority: '{{priority:high|medium|low}}',
+  author: '{{author=Your Name}}',
+  created: '{{date:today}}'
+};
+```
 
 ## Screenshots
 
@@ -69,10 +128,12 @@ All data is stored locally in your vault under `.obsidian/plugins/snippetbase/` 
 - **Folder Filter**: Filter by vault folder location
 - **Favorites**: Click the star icon to favorite/unfavorite snippets
 - **Copy**: Click the copy button to copy snippet content to clipboard
+- **Copy (fill…)**: Fill template placeholders with custom values before copying
 - **Preview**: Click any snippet to see full syntax-highlighted preview
 
 ### Commands
 - `SnippetBase: Rebuild snippet index` - Manually rebuild the snippet database
+- `SnippetBase: Copy (fill…)` - Copy selected snippet with placeholder filling
 
 ## Privacy
 
@@ -95,6 +156,12 @@ No, SnippetBase only reads your markdown files to index code snippets - it never
 Everything is stored locally in your vault under `.obsidian/plugins/snippetbase/`.
 
 ## Changelog
+
+### 0.1.2
+- Added template placeholders with dynamic value filling
+- Support for text, select, and date placeholder types
+- Date expressions with complex math (today+7d, 2025-12-21+1m, etc.)
+- Placeholder history and auto-fill functionality
 
 ### 0.1.0
 - Initial release with core functionality
