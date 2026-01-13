@@ -32,6 +32,7 @@ import { PlaceholderModal } from "./PlaceholderModal";
     private folderSelectEl!: HTMLSelectElement;
     private searchInputEl!: HTMLInputElement;
     private statusEl!: HTMLDivElement;
+    private favoritesBtn!: HTMLButtonElement;
   
     constructor(leaf: WorkspaceLeaf, plugin: SnippetBasePlugin) {
       super(leaf);
@@ -98,26 +99,36 @@ import { PlaceholderModal } from "./PlaceholderModal";
         this.renderList();
       };
 
-      const favoritesBtn = controls.createEl("button", {
+      const clearFiltersBtn = controls.createEl("button", {
+        text: "Clear filters",
+        cls: "snippetbase-clear-btn",
+      });
+      clearFiltersBtn.onclick = () => {
+        this.clearAllFilters();
+      };
+
+      // Main layout: left (favorites + list) + right (actions + preview)
+      const main = container.createDiv({ cls: "snippetbase-main" });
+
+      const left = main.createDiv({ cls: "snippetbase-left" });
+
+      this.favoritesBtn = left.createEl("button", {
         text: "★ favorites",
         cls: "snippetbase-favorites-btn",
       });
-      favoritesBtn.onclick = () => {
+      this.favoritesBtn.onclick = () => {
         this.showFavoritesOnly = !this.showFavoritesOnly;
-        favoritesBtn.setText(this.showFavoritesOnly ? "★ Show all" : "★ Favorites");
-        favoritesBtn.toggleClass("is-active", this.showFavoritesOnly);
+        this.favoritesBtn.setText(this.showFavoritesOnly ? "★ Show all" : "★ favorites");
+        this.favoritesBtn.toggleClass("is-active", this.showFavoritesOnly);
         this.renderList();
       };
 
-      // Main layout: list (left) + preview (right)
-      const main = container.createDiv({ cls: "snippetbase-main" });
-  
-      this.listEl = main.createDiv({ cls: "snippetbase-list" });
-  
+      this.listEl = left.createDiv({ cls: "snippetbase-list" });
+
       const right = main.createDiv({ cls: "snippetbase-right" });
-  
+
       const actions = right.createDiv({ cls: "snippetbase-actions" });
-  
+
       const copyBtn = actions.createEl("button", { text: "Copy" });
       copyBtn.onclick = async (event) => {
         const rec = this.getSelectedRecord();
@@ -345,6 +356,19 @@ import { PlaceholderModal } from "./PlaceholderModal";
       this.statusEl.setText(statusText);
     }
   
+    private clearAllFilters() {
+      this.search = "";
+      this.searchInputEl.value = "";
+      this.folderFilter = "all";
+      this.folderSelectEl.value = "all";
+      this.langFilter = "all";
+      this.langSelectEl.value = "all";
+      this.showFavoritesOnly = false;
+      this.favoritesBtn.setText("★ favorites");
+      this.favoritesBtn.removeClass("is-active");
+      this.renderList();
+    }
+
     private filteredRecords(): SnippetRecord[] {
       const q = (this.search ?? "").trim().toLowerCase();
 

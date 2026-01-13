@@ -30,7 +30,7 @@
 
 .snippetbase-controls {
   display: grid;
-  grid-template-columns: 1fr auto auto; /* search + folder + language */
+  grid-template-columns: 1fr auto auto auto; /* search + folder + language + clear */
   gap: 8px;
   margin-bottom: 10px;
   align-items: center;
@@ -49,7 +49,15 @@
   gap: 10px;
 }
 
+.snippetbase-left {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .snippetbase-list {
+  flex: 1 1 auto;
   min-height: 0; /* critical */
   overflow: auto;
   border: 1px solid var(--background-modifier-border);
@@ -154,28 +162,51 @@
 }
 
 .snippetbase-favorites-btn {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
+  width: 100%;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  padding: 6px 12px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
+  transition: all 0.2s;
+  text-align: center;
 }
 
 .snippetbase-favorites-btn:hover {
-  background: var(--interactive-accent-hover);
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
 }
 
 .snippetbase-favorites-btn.is-active {
-  background: var(--text-accent);
+  background: var(--interactive-accent);
   color: var(--text-on-accent);
+  border-color: var(--interactive-accent);
   font-weight: 700;
 }
 
 .snippetbase-favorites-btn.is-active:hover {
-  background: var(--text-accent-hover);
+  background: var(--interactive-accent-hover);
+  border-color: var(--interactive-accent-hover);
+}
+
+.snippetbase-clear-btn {
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  border: 1px solid var(--background-modifier-border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.snippetbase-clear-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
 }
 
 .snippetbase-row-actions {
