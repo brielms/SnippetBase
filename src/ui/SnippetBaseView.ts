@@ -408,12 +408,6 @@ import { PlaceholderModal } from "./PlaceholderModal";
     }
 
     async copySnippetWithPlaceholders(rec: SnippetRecord) {
-      // Defense in depth: check Pro status in the UI layer too
-      if (!this.plugin.isProEnabled()) {
-        new Notice("Pro feature — enter your license key in settings");
-        return;
-      }
-
       const specs = extractPlaceholders(rec.content);
 
       if (specs.length === 0) {
