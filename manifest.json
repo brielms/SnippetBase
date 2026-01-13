@@ -1,7 +1,7 @@
 {
 	"id": "snippetbase",
 	"name": "SnippetBase",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"minAppVersion": "1.5.0",
 	"description": "Vault-wide database UI for fenced code snippets: search, filter, preview, copy.",
 	"author": "Matthew Briel",
