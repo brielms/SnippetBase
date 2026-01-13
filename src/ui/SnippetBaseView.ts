@@ -8,9 +8,11 @@ import {
     MarkdownView,
     MarkdownRenderer,
   } from "obsidian";
-  
+
 import type SnippetBasePlugin from "../main";
 import type { SnippetRecord } from "../snippetBase/indexer";
+import { extractPlaceholders, applyPlaceholders, type PlaceholderValues } from "../snippetBase/placeholders";
+import { PlaceholderModal } from "./PlaceholderModal";
   
   export const VIEW_TYPE_SNIPPETBASE = "snippetbase-view";
   
@@ -131,6 +133,13 @@ import type { SnippetRecord } from "../snippetBase/indexer";
           new Notice("Copy failed (see console)");
         }
       };
+
+      const fillCopyBtn = actions.createEl("button", { text: "Copy (fill…)" });
+      fillCopyBtn.onclick = async () => {
+        const rec = this.getSelectedRecord();
+        if (!rec) return;
+        await this.copySnippetWithPlaceholders(rec);
+      };
   
       const openBtn = actions.createEl("button", { text: "Open in note" });
       openBtn.onclick = async () => {
@@ -163,7 +172,7 @@ import type { SnippetRecord } from "../snippetBase/indexer";
       return this.plugin.getAllSnippets();
     }
   
-    private getSelectedRecord(): SnippetRecord | null {
+    getSelectedRecord(): SnippetRecord | null {
       if (!this.selectedId) return null;
       return this.getAllRecords().find((r) => r.id === this.selectedId) ?? null;
     }
@@ -234,14 +243,26 @@ import type { SnippetRecord } from "../snippetBase/indexer";
         const title = row.createDiv({ cls: "snippetbase-row-title" });
         title.setText(r.autoName);
 
-        const starIcon = row.createEl("span", {
+        const actions = row.createDiv({ cls: "snippetbase-row-actions" });
+
+        const starIcon = actions.createEl("span", {
           cls: "snippetbase-row-star",
           text: this.plugin.isFavorite(r.id) ? "★" : "☆",
+          title: this.plugin.isFavorite(r.id) ? "Remove from favorites" : "Add to favorites",
         });
         starIcon.onclick = async (e) => {
           e.stopPropagation();
           await this.plugin.toggleFavorite(r.id);
           this.renderList(); // Re-render to update star appearance
+        };
+
+        const fillCopyBtn = actions.createEl("button", {
+          text: "Copy (fill…)",
+          cls: "snippetbase-row-action-btn",
+        });
+        fillCopyBtn.onclick = async (e) => {
+          e.stopPropagation();
+          await this.copySnippetWithPlaceholders(r);
         };
 
         const meta = row.createDiv({ cls: "snippetbase-row-meta" });
@@ -384,6 +405,60 @@ import type { SnippetRecord } from "../snippetBase/indexer";
         editor.setCursor({ line, ch: 0 });
         editor.scrollIntoView({ from: { line, ch: 0 }, to: { line, ch: 0 } }, true);
       }
+    }
+
+    async copySnippetWithPlaceholders(rec: SnippetRecord) {
+      // Defense in depth: check Pro status in the UI layer too
+      if (!this.plugin.isProEnabled()) {
+        new Notice("Pro feature — enter your license key in settings");
+        return;
+      }
+
+      const specs = extractPlaceholders(rec.content);
+
+      if (specs.length === 0) {
+        // No placeholders, behave like normal copy
+        try {
+          await navigator.clipboard.writeText(rec.content);
+          new Notice("Copied snippet");
+        } catch (e) {
+          console.error("[SnippetBase] clipboard failed", e);
+          new Notice("Copy failed (see console)");
+        }
+        return;
+      }
+
+      // Has placeholders, show modal
+      const modal = new PlaceholderModal(
+        this.app,
+        specs,
+        this.plugin.settings.placeholderHistory,
+        this.plugin.settings.placeholderUi,
+        (values: PlaceholderValues) => {
+          try {
+            const filledText = applyPlaceholders(rec.content, values, specs);
+            // Don't await - fire and forget for clipboard
+            navigator.clipboard.writeText(filledText).then(() => {
+              new Notice("Copied filled snippet");
+            }).catch((e) => {
+              console.error("[SnippetBase] clipboard failed", e);
+              new Notice("Copy failed (see console)");
+            });
+
+            // Update history
+            for (const [key, value] of Object.entries(values)) {
+              this.plugin.settings.placeholderHistory[key] = value;
+            }
+            void this.plugin.saveSettings();
+
+          } catch (e) {
+            console.error("[SnippetBase] placeholder processing failed", e);
+            new Notice("Processing failed (see console)");
+          }
+        }
+      );
+
+      modal.open();
     }
 }
   

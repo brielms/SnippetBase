@@ -20,3 +20,20 @@ data.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# Private keys and secrets for licensing (NEVER commit these!)
+private-key*
+*.pem
+.secrets/
+tools/private-key*
+tests/fixtures/licenses.private.json
+
+# Test files containing license keys (may include real customer data)
+test-license.js
+test-license-validation.mjs
+test-verification.mjs
+scripts/test-plugin-license.mjs
+scripts/test-license.mjs
+
+# Temporary test output
+.tmp/

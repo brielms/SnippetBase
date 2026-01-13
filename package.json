@@ -1,6 +1,6 @@
 {
 	"name": "snippetbase",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Vault-wide database UI for fenced code snippets: search, filter, preview, copy.",
 	"main": "main.js",
 	"type": "module",
@@ -9,21 +9,26 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint .",
+		"test:date": "node scripts/run-date-tests.mjs",
+		"test:license": "node scripts/run-license-tests.mjs",
+		"test:license:regression": "node scripts/test-license-regression.mjs",
+		"setup": "node scripts/setup-licensing.mjs",
+		"license-status": "node scripts/license-status.mjs",
 		"deploy:local": "cp main.js manifest.json styles.css \"$OBSIDIAN_VAULT/.obsidian/plugins/snippetbase/\""
 	},
 	"keywords": [],
 	"license": "MIT",
 	"funding": "https://buymeacoffee.com/brielms",
 	"devDependencies": {
+		"@eslint/js": "9.30.1",
 		"@types/node": "^16.11.6",
 		"esbuild": "0.25.5",
-		"eslint-plugin-obsidianmd": "0.1.9",
+		"eslint-plugin-obsidianmd": "^0.1.9",
 		"globals": "14.0.0",
+		"jiti": "2.6.1",
 		"tslib": "2.4.0",
 		"typescript": "^5.8.3",
-		"typescript-eslint": "8.35.1",
-		"@eslint/js": "9.30.1",
-		"jiti": "2.6.1"
+		"typescript-eslint": "8.35.1"
 	},
 	"dependencies": {
 		"obsidian": "latest"

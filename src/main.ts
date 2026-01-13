@@ -4,6 +4,7 @@ import { Notice, Plugin, TFile } from "obsidian";
 import { SnippetIndexer } from "./snippetBase/indexer";
 import { DEFAULT_SETTINGS, SnippetBaseSettings, SnippetBaseSettingTab } from "./settings";
 import { SnippetBaseView, VIEW_TYPE_SNIPPETBASE } from "./ui/SnippetBaseView";
+import { requirePro } from "./licensing/license";
 
 export default class SnippetBasePlugin extends Plugin {
   settings: SnippetBaseSettings;
@@ -149,6 +150,10 @@ export default class SnippetBasePlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
+
+    // Initialize license state
+    await this.updateLicenseState();
+
     // Settings UI
     this.addSettingTab(new SnippetBaseSettingTab(this.app, this));
 
@@ -196,7 +201,6 @@ export default class SnippetBasePlugin extends Plugin {
     );
 
     // Plugin loaded successfully
-    console.debug("[SnippetBase] loaded");
 
     // Commands
     this.addCommand({
@@ -208,7 +212,6 @@ export default class SnippetBasePlugin extends Plugin {
         const ms = Math.round(performance.now() - t0);
 
         new Notice(`Indexed ${recs.length} snippets (${ms} ms)`);
-        console.debug("[SnippetBase] indexed", recs.length, "snippets");
       },
     });
 
@@ -233,6 +236,31 @@ export default class SnippetBasePlugin extends Plugin {
       },
     });
 
+    this.addCommand({
+      id: "copy-fill-selected",
+      name: "Copy (fill…)",
+      callback: async () => {
+        // Pro feature: placeholder filling with modal
+        if (!await requirePro("Copy with placeholders", this.settings.licenseKey)) {
+          return;
+        }
+
+        const view = this.app.workspace.getActiveViewOfType(SnippetBaseView);
+        if (!view) {
+          new Notice("Snippet base view is not active");
+          return;
+        }
+
+        const rec = view.getSelectedRecord();
+        if (!rec) {
+          new Notice("No snippet selected");
+          return;
+        }
+
+        await view.copySnippetWithPlaceholders(rec);
+      },
+    });
+
     this.addRibbonIcon("code-2", "Open snippet base", async () => {
       await this.openSnippetBase("tab");
     });
@@ -241,7 +269,6 @@ export default class SnippetBasePlugin extends Plugin {
     // Comment out if you prefer manual rebuilds during dev.
     setTimeout(() => {
       void this.rebuildIndex().then((recs) => {
-        console.debug("[SnippetBase] initial index:", recs.length);
       }).catch((e) => {
         console.error("[SnippetBase] initial index failed", e);
       });
@@ -257,7 +284,6 @@ export default class SnippetBasePlugin extends Plugin {
 
   onunload() {
     // Cleanup will be handled automatically by Obsidian
-    console.debug("[SnippetBase] unloaded");
   }
 
   async loadSettings() {
@@ -271,5 +297,54 @@ export default class SnippetBasePlugin extends Plugin {
   async saveSettings() {
     await this.saveData(this.settings);
   }
+
+  /**
+   * Update cached license state by verifying license key
+   */
+  async updateLicenseState() {
+    const { licenseKey } = this.settings;
+
+    try {
+      const { verifyLicenseKey } = await import('./licensing/license');
+
+      // Verify license key
+      const licenseResult = await verifyLicenseKey(licenseKey || '');
+
+      console.log('[SnippetBase] License verification result:', {
+        keyLength: licenseKey?.length,
+        ok: licenseResult.ok,
+        error: licenseResult.error,
+        licenseId: licenseResult.licenseId
+      });
+
+      // Update cached state
+      this.settings.licenseState = {
+        isPro: licenseResult.ok,
+        checkedAt: Date.now(),
+      };
+
+      if (licenseResult.ok) {
+        this.settings.licenseState.licenseId = licenseResult.licenseId;
+        this.settings.licenseState.email = licenseResult.email;
+        this.settings.licenseState.buyerId = licenseResult.buyerId;
+        this.settings.licenseState.seats = licenseResult.seats;
+      }
+
+      await this.saveSettings();
+    } catch (error) {
+      console.error('[SnippetBase] License state update failed:', error);
+      // Reset to safe defaults on error
+      this.settings.licenseState = { isPro: false, checkedAt: Date.now() };
+      await this.saveSettings();
+    }
+  }
+
+  /**
+   * Check if Pro features are enabled
+   */
+  isProEnabled(): boolean {
+    return this.settings.licenseState?.isPro ?? false;
+  }
+
 }
 
