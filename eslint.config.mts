@@ -23,6 +23,9 @@ export default defineConfig([
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},
+		rules: {
+			"require-await": "error",
+		},
 	},
 	{
 		files: ["manifest.json"],

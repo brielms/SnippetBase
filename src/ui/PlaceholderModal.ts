@@ -71,7 +71,7 @@ export class PlaceholderModal extends Modal {
     toggleSetting.setDesc("Hide fields that are pre-filled with computed or default values");
     toggleSetting.addToggle(toggle => toggle
       .setValue(this.hideAutofilledToggle)
-      .onChange(async (value) => {
+      .onChange((value) => {
         this.hideAutofilledToggle = value;
         this.uiSettings.hideAutofilled = value;
         this.refreshFields();

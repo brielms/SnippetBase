@@ -47,7 +47,7 @@ import { PlaceholderModal } from "./PlaceholderModal";
       return "Snippet base";
     }
   
-    async onOpen() {
+    onOpen(): Promise<void> {
       this.containerEl.addClass("snippetbase-root");
       const container = this.containerEl.children[1] as HTMLElement;
       container.empty();
@@ -167,8 +167,9 @@ import { PlaceholderModal } from "./PlaceholderModal";
       return Promise.resolve();
     }
   
-    async onClose() {
+    onClose(): Promise<void> {
       // nothing special
+      return Promise.resolve();
     }
   
     refresh() {
